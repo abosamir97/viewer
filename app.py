@@ -127,32 +127,35 @@ def rar_to_zip(rar_path, work_dir):
                 zf.write(f, f.relative_to(extract_dir))
     return zip_path
 
-def load_shp(uploaded_file):
-    """يقرأ SHP أو ZIP أو RAR ويرجع GeoDataFrame."""
+def extract_archive(uploaded_file):
+    """يفك الأرشيف ويرجع (tmp_dir, قائمة مسارات .shp)."""
     tmp = tempfile.mkdtemp(prefix="shpweb_")
-    try:
-        name = uploaded_file.name
-        data = uploaded_file.read()
-        fpath = Path(tmp) / name
-        fpath.write_bytes(data)
+    name = uploaded_file.name
+    data = uploaded_file.read()
+    fpath = Path(tmp) / name
 
-        if name.lower().endswith(".zip"):
-            with zipfile.ZipFile(fpath) as z:
-                z.extractall(tmp)
-        elif name.lower().endswith(".rar"):
-            zip_path = rar_to_zip(fpath, tmp)
-            with zipfile.ZipFile(zip_path) as z:
-                z.extractall(tmp)
-        # ابحث عن .shp
-        shps = list(Path(tmp).rglob("*.shp"))
-        if not shps:
-            raise FileNotFoundError("No .shp found inside the archive.")
-        gdf = gpd.read_file(shps[0])
-        if gdf.crs and gdf.crs.to_epsg() != 4326:
-            gdf = gdf.to_crs(epsg=4326)
-        return gdf, shps[0].stem
-    finally:
+    fpath.write_bytes(data)
+
+    if name.lower().endswith(".zip"):
+        with zipfile.ZipFile(fpath) as z:
+            z.extractall(tmp)
+    elif name.lower().endswith(".rar"):
+        zip_path = rar_to_zip(fpath, tmp)
+        with zipfile.ZipFile(zip_path) as z:
+            z.extractall(tmp)
+
+    shps = sorted(Path(tmp).rglob("*.shp"))
+    if not shps:
         shutil.rmtree(tmp, ignore_errors=True)
+        raise FileNotFoundError("لم يتم العثور على ملف .shp داخل الأرشيف.")
+    return tmp, shps
+
+def load_gdf(shp_path):
+    """يقرأ shapefile واحد ويرجع GeoDataFrame."""
+    gdf = gpd.read_file(shp_path)
+    if gdf.crs and gdf.crs.to_epsg() != 4326:
+        gdf = gdf.to_crs(epsg=4326)
+    return gdf
 
 
 # ════════════════════════════════════════════════════
@@ -478,18 +481,60 @@ with st.sidebar:
 # ════════════════════════════════════════════════════
 
 if uploaded is None:
-    st.info("⬆️  Upload a Shapefile (SHP or ZIP) from the sidebar to begin.")
+    st.info("⬆️  ارفع Shapefile (SHP / ZIP / RAR) من الـ sidebar للبدء.")
     st.stop()
 
-# Load
-with st.spinner("Loading shapefile..."):
+# ── Extract archive once per upload ──────────────────
+file_id = uploaded.file_id if hasattr(uploaded, "file_id") else uploaded.name
+
+if st.session_state.get("file_id") != file_id:
+    # تنظيف الـ tmp القديم
+    old_tmp = st.session_state.get("tmp_dir")
+    if old_tmp:
+        shutil.rmtree(old_tmp, ignore_errors=True)
+    with st.spinner("جاري استخراج الملفات..."):
+        try:
+            tmp_dir, shp_paths = extract_archive(uploaded)
+        except Exception as e:
+            st.error(f"Failed to load file: {e}")
+            st.stop()
+    st.session_state["file_id"]   = file_id
+    st.session_state["tmp_dir"]   = tmp_dir
+    st.session_state["shp_paths"] = [str(p) for p in shp_paths]
+    st.session_state["layer_idx"] = 0
+
+shp_paths  = [Path(p) for p in st.session_state["shp_paths"]]
+layer_idx  = st.session_state.get("layer_idx", 0)
+layer_names = [p.stem for p in shp_paths]
+
+# ── Layer navigator (يظهر بس لو أكتر من layer) ───────
+if len(shp_paths) > 1:
+    st.markdown("### 🗂️ اختر الطبقة")
+    cols = st.columns(min(len(shp_paths), 5))
+    for i, (col, lname) in enumerate(zip(cols, layer_names)):
+        btn_type = "primary" if i == layer_idx else "secondary"
+        if col.button(lname, key=f"layer_{i}", type=btn_type,
+                      use_container_width=True):
+            st.session_state["layer_idx"] = i
+            st.rerun()
+    layer_idx = st.session_state.get("layer_idx", 0)
+    st.markdown("---")
+
+# ── Load selected layer ───────────────────────────────
+selected_shp  = shp_paths[layer_idx]
+layer_name    = selected_shp.stem
+
+with st.spinner(f"جاري تحميل {layer_name}..."):
     try:
-        gdf, layer_name = load_shp(uploaded)
+        gdf = load_gdf(selected_shp)
     except Exception as e:
-        st.error(f"Failed to load file: {e}")
+        st.error(f"خطأ في قراءة الطبقة: {e}")
         st.stop()
 
-st.caption(f"**Layer:** {layer_name}  •  **Features:** {len(gdf)}  •  **CRS:** EPSG:4326")
+st.caption(
+    f"**Layer:** {layer_name}  •  **Features:** {len(gdf)}  •  **CRS:** EPSG:4326"
+    + (f"  •  **{len(shp_paths)} layers**" if len(shp_paths) > 1 else "")
+)
 
 # Build options dict
 opts = dict(
