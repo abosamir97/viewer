@@ -44,7 +44,15 @@ st.markdown("""
   section[data-testid="stSidebar"] { background: #1e293b; }
   section[data-testid="stSidebar"] * { color: #f1f5f9 !important; }
   section[data-testid="stSidebar"] .stSlider > div { color: #f1f5f9; }
-  section[data-testid="stSidebar"] input { background:#0f172a !important; color:#f1f5f9 !important; }
+  section[data-testid="stSidebar"] input {
+    background:#0f172a !important; color:#f1f5f9 !important;
+    direction: rtl !important; text-align: right !important;
+    font-size: 15px !important; padding: 8px 10px !important;
+    border-radius: 6px !important;
+  }
+  section[data-testid="stSidebar"] label {
+    font-size: 14px !important; font-weight: bold !important;
+  }
   /* Header bar */
   .top-bar {
     background: linear-gradient(90deg,#1e3a5f,#6366f1);
@@ -289,17 +297,17 @@ def draw_table(ax_tbl, gdf):
     col_labels = ["#","X (Lon)","Y (Lat)"]
     table_data = [[str(i+1),f"{v[0]:.6f}",f"{v[1]:.6f}"]
                   for i,v in enumerate(vertices)]
-    row_colors = [["#f8fafc"]*3 if i%2==0 else ["#e2e8f0"]*3
+    row_colors = [["#f8fafc"]*3 if i%2==0 else ["#dbeafe"]*3
                   for i in range(len(table_data))]
     tbl = ax_tbl.table(cellText=table_data, colLabels=col_labels,
                        cellLoc="center", loc="upper center",
                        cellColours=row_colors)
-    tbl.auto_set_font_size(False); tbl.set_fontsize(7); tbl.scale(1,1.15)
+    tbl.auto_set_font_size(False); tbl.set_fontsize(9); tbl.scale(1, 1.6)
     for j in range(3):
         tbl[(0,j)].set_facecolor("#1e3a5f")
         tbl[(0,j)].set_text_props(color="white", fontweight="bold")
-    ax_tbl.set_title(ar("إحداثيات الكسرات"), fontsize=8,
-                     fontweight="bold", color="#1e293b", pad=3)
+    ax_tbl.set_title(ar("إحداثيات الكسرات"), fontsize=10,
+                     fontweight="bold", color="#1e293b", pad=5)
     ax_tbl.set_xlim(0,1); ax_tbl.set_ylim(0,1)
 
 
@@ -307,41 +315,44 @@ def draw_title_block(ax_tb, name, ref, center):
     ax_tb.clear(); ax_tb.set_xlim(0,1); ax_tb.set_ylim(0,1); ax_tb.axis("off")
     ax_tb.set_facecolor("#dbeafe")
     from matplotlib.patches import FancyBboxPatch
-    outer = FancyBboxPatch((0.005,0.05),0.99,0.90,
+    outer = FancyBboxPatch((0.005,0.03),0.99,0.94,
                            boxstyle="square,pad=0",
                            linewidth=1.5, edgecolor="#1e3a5f",
                            facecolor="#dbeafe", zorder=1,
                            transform=ax_tb.transAxes)
     ax_tb.add_patch(outer)
-    cols = [
+
+    rows = [
         (ar("اسم مقدم الطلب"), ar(name   or "—")),
         (ar("رقم الطلب"),       ar(ref    or "—")),
         (ar("المركز"),           ar(center or "—")),
     ]
-    for i,(header,value) in enumerate(cols):
-        col_w = 1.0/3
-        x0 = i*col_w
-        if i>0: ax_tb.axvline(x=x0,ymin=0.05,ymax=0.95,
-                               color="#1e3a5f",linewidth=1.2,zorder=2)
-        cx = x0+col_w/2
-        ax_tb.text(cx,0.72,header,ha="center",va="center",
-                   fontsize=7,color="#475569",fontweight="bold",
-                   transform=ax_tb.transAxes,zorder=3)
-        ax_tb.plot([x0+0.01,x0+col_w-0.01],[0.55,0.55],
-                   color="#94a3b8",linewidth=0.6,
-                   transform=ax_tb.transAxes,zorder=3)
-        ax_tb.text(cx,0.28,value,ha="center",va="center",
-                   fontsize=10,color="#1e293b",fontweight="bold",
-                   transform=ax_tb.transAxes,zorder=3,clip_on=True)
-    ax_tb.text(0.998,0.12,"Design & Developed by Eng. Mhmd Samir",
-               ha="right",va="center",fontsize=6.5,color="#64748b",
-               fontstyle="italic",transform=ax_tb.transAxes,zorder=4)
+    # 3 rows stacked vertically — y positions
+    y_positions = [0.80, 0.52, 0.24]
+    for (header, value), y in zip(rows, y_positions):
+        # separator line
+        ax_tb.axhline(y=y+0.10, xmin=0.01, xmax=0.99,
+                      color="#94a3b8", linewidth=0.5, zorder=2)
+        # label (right side, smaller)
+        ax_tb.text(0.98, y+0.17, header,
+                   ha="right", va="center",
+                   fontsize=7, color="#475569", fontweight="bold",
+                   transform=ax_tb.transAxes, zorder=3)
+        # value (center, larger)
+        ax_tb.text(0.50, y, value,
+                   ha="center", va="center",
+                   fontsize=10, color="#1e293b", fontweight="bold",
+                   transform=ax_tb.transAxes, zorder=3, clip_on=True)
+
+    ax_tb.text(0.998, 0.02, "Design & Developed by Eng. Mhmd Samir",
+               ha="right", va="bottom", fontsize=6.5, color="#64748b",
+               fontstyle="italic", transform=ax_tb.transAxes, zorder=4)
 
 
 def build_figure(gdf, opts):
-    fig = plt.figure(figsize=(14, 9), facecolor="#0a1628")
+    fig = plt.figure(figsize=(14, 10), facecolor="#0a1628")
     gs = gridspec.GridSpec(2, 2, figure=fig,
-                           width_ratios=[3,1], height_ratios=[10,1],
+                           width_ratios=[2.5,1.5], height_ratios=[8,3],
                            left=0.04, right=0.98,
                            top=0.97, bottom=0.03,
                            wspace=0.04, hspace=0.06)
@@ -447,20 +458,22 @@ st.download_button(
 )
 
 # ── Coords table (interactive) ────────────────────────
-with st.expander("📊 Vertex Coordinates Table", expanded=False):
+with st.expander("📊 جدول إحداثيات الكسرات", expanded=True):
     vertices = collect_vertices(gdf)
     if vertices:
         import pandas as pd
         df = pd.DataFrame(
             [[i+1, f"{v[0]:.6f}", f"{v[1]:.6f}"] for i,v in enumerate(vertices)],
-            columns=["#", "X (Lon)", "Y (Lat)"]
+            columns=["رقم الكسرة", "X (Lon)", "Y (Lat)"]
         )
-        st.dataframe(df, use_container_width=True, height=300)
+        st.dataframe(df, use_container_width=True, height=400,
+                     hide_index=True)
 
         # تحميل الجدول كـ CSV
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("⬇️ Download Coords CSV", csv,
-                           f"{layer_name}_coords.csv", "text/csv")
+        csv = df.to_csv(index=False).encode("utf-8-sig")  # utf-8-sig for Excel Arabic support
+        st.download_button("⬇️ تحميل الإحداثيات CSV", csv,
+                           f"{layer_name}_coords.csv", "text/csv",
+                           use_container_width=True)
     else:
         st.warning("No vertices found.")
 
