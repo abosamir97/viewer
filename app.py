@@ -9,7 +9,7 @@ Deploy free on Streamlit Cloud:
     https://streamlit.io/cloud
 """
 
-import math, zipfile, tempfile, shutil, io
+import math, zipfile, tempfile, shutil, io, subprocess
 
 from pathlib import Path
 
@@ -110,8 +110,25 @@ def collect_vertices(gdf):
             vertices.extend(pts)
     return vertices
 
+def rar_to_zip(rar_path, work_dir):
+    """يفك الـ RAR بـ 7z ويعيد تحزيمه ZIP — بدون مكتبات خارجية."""
+    extract_dir = Path(work_dir) / "rar_extracted"
+    extract_dir.mkdir(exist_ok=True)
+    result = subprocess.run(
+        ["7z", "x", str(rar_path), f"-o{extract_dir}", "-y"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"7z failed: {result.stderr.strip()}")
+    zip_path = Path(work_dir) / "converted.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in extract_dir.rglob("*"):
+            if f.is_file():
+                zf.write(f, f.relative_to(extract_dir))
+    return zip_path
+
 def load_shp(uploaded_file):
-    """يقرأ SHP أو ZIP من الـ uploader ويرجع GeoDataFrame."""
+    """يقرأ SHP أو ZIP أو RAR ويرجع GeoDataFrame."""
     tmp = tempfile.mkdtemp(prefix="shpweb_")
     try:
         name = uploaded_file.name
@@ -121,6 +138,10 @@ def load_shp(uploaded_file):
 
         if name.lower().endswith(".zip"):
             with zipfile.ZipFile(fpath) as z:
+                z.extractall(tmp)
+        elif name.lower().endswith(".rar"):
+            zip_path = rar_to_zip(fpath, tmp)
+            with zipfile.ZipFile(zip_path) as z:
                 z.extractall(tmp)
         # ابحث عن .shp
         shps = list(Path(tmp).rglob("*.shp"))
@@ -422,8 +443,8 @@ def build_figure(gdf, opts):
 with st.sidebar:
     st.markdown("## 🗂️ Open File")
     uploaded = st.file_uploader(
-        "Upload SHP or ZIP",
-        type=["shp","zip"],
+        "Upload SHP / ZIP / RAR",
+        type=["shp","zip","rar"],
         help="Upload a .shp file or a .zip containing the shapefile components"
     )
 
@@ -447,9 +468,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("## 📋 بيانات الطلب")
-    tb_name   = st.text_input("اسم مقدم الطلب", placeholder="مثال: محمد سمير")
-    tb_ref    = st.text_input("رقم الطلب",       placeholder="مثال: 122")
-    tb_center = st.text_input("المركز",           placeholder="مثال: مركز كوم حمادة")
+    tb_name   = st.text_input("اسم مقدم الطلب", placeholder="مثال: أحمد محمد")
+    tb_ref    = st.text_input("رقم الطلب",       placeholder="مثال: 2024/123")
+    tb_center = st.text_input("المركز",           placeholder="مثال: مركز أبوحمص")
 
 
 # ════════════════════════════════════════════════════
