@@ -111,15 +111,15 @@ def collect_vertices(gdf):
     return vertices
 
 def rar_to_zip(rar_path, work_dir):
-    """يفك الـ RAR بـ 7z ويعيد تحزيمه ZIP — بدون مكتبات خارجية."""
+    """يفك الـ RAR بـ unar ويعيد تحزيمه ZIP."""
     extract_dir = Path(work_dir) / "rar_extracted"
     extract_dir.mkdir(exist_ok=True)
     result = subprocess.run(
-        ["7z", "x", str(rar_path), f"-o{extract_dir}", "-y"],
+        ["unar", "-o", str(extract_dir), "-force-overwrite", str(rar_path)],
         capture_output=True, text=True
     )
     if result.returncode != 0:
-        raise RuntimeError(f"7z failed: {result.stderr.strip()}")
+        raise RuntimeError(f"unar failed: {result.stderr.strip()}")
     zip_path = Path(work_dir) / "converted.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in extract_dir.rglob("*"):
