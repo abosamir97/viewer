@@ -314,39 +314,79 @@ def draw_table(ax_tbl, gdf):
 def draw_title_block(ax_tb, name, ref, center):
     ax_tb.clear(); ax_tb.set_xlim(0,1); ax_tb.set_ylim(0,1); ax_tb.axis("off")
     ax_tb.set_facecolor("#dbeafe")
-    from matplotlib.patches import FancyBboxPatch
-    outer = FancyBboxPatch((0.005,0.03),0.99,0.94,
-                           boxstyle="square,pad=0",
-                           linewidth=1.5, edgecolor="#1e3a5f",
-                           facecolor="#dbeafe", zorder=1,
-                           transform=ax_tb.transAxes)
-    ax_tb.add_patch(outer)
+    from matplotlib.patches import FancyBboxPatch, Rectangle
 
     rows = [
         (ar("اسم مقدم الطلب"), ar(name   or "—")),
         (ar("رقم الطلب"),       ar(ref    or "—")),
         (ar("المركز"),           ar(center or "—")),
     ]
-    # 3 rows stacked vertically — y positions
-    y_positions = [0.80, 0.52, 0.24]
-    for (header, value), y in zip(rows, y_positions):
-        # separator line
-        ax_tb.axhline(y=y+0.10, xmin=0.01, xmax=0.99,
-                      color="#94a3b8", linewidth=0.5, zorder=2)
-        # label (right side, smaller)
-        ax_tb.text(0.98, y+0.17, header,
-                   ha="right", va="center",
-                   fontsize=7, color="#475569", fontweight="bold",
-                   transform=ax_tb.transAxes, zorder=3)
-        # value (center, larger)
-        ax_tb.text(0.50, y, value,
-                   ha="center", va="center",
-                   fontsize=10, color="#1e293b", fontweight="bold",
-                   transform=ax_tb.transAxes, zorder=3, clip_on=True)
+    n = len(rows)
+    x0, y0   = 0.005, 0.04          # bottom-left corner of whole block
+    W,  H    = 0.990, 0.92          # total width & height
+    row_h    = H / n
+    label_w  = 0.22                  # width of right label column
+    val_w    = W - label_w           # width of left value column
 
-    ax_tb.text(0.998, 0.02, "Design & Developed by Eng. Mhmd Samir",
-               ha="right", va="bottom", fontsize=6.5, color="#64748b",
-               fontstyle="italic", transform=ax_tb.transAxes, zorder=4)
+    # ── outer border ──────────────────────────────────
+    outer = Rectangle((x0, y0), W, H,
+                       linewidth=2, edgecolor="#1e3a5f",
+                       facecolor="#dbeafe", zorder=1,
+                       transform=ax_tb.transAxes)
+    ax_tb.add_patch(outer)
+
+    for i, (header, value) in enumerate(rows):
+        ry = y0 + (n - 1 - i) * row_h          # y of this row (top row first)
+
+        # row fill (alternating)
+        fill_color = "#dbeafe" if i % 2 == 0 else "#eff6ff"
+        cell_bg = Rectangle((x0, ry), W, row_h,
+                              linewidth=0, facecolor=fill_color,
+                              zorder=2, transform=ax_tb.transAxes)
+        ax_tb.add_patch(cell_bg)
+
+        # horizontal row separator line
+        if i > 0:
+            ax_tb.plot([x0, x0+W], [ry+row_h, ry+row_h],
+                       color="#1e3a5f", linewidth=1.2,
+                       transform=ax_tb.transAxes, zorder=5)
+
+        # vertical divider between label and value
+        div_x = x0 + val_w
+        ax_tb.plot([div_x, div_x], [ry, ry+row_h],
+                   color="#1e3a5f", linewidth=1.2,
+                   transform=ax_tb.transAxes, zorder=5)
+
+        # label cell (right column) — light blue bg
+        label_bg = Rectangle((div_x, ry), label_w, row_h,
+                               linewidth=0, facecolor="#bfdbfe",
+                               zorder=3, transform=ax_tb.transAxes)
+        ax_tb.add_patch(label_bg)
+
+        cy = ry + row_h / 2
+
+        # label text (right column)
+        ax_tb.text(div_x + label_w/2, cy, header,
+                   ha="center", va="center",
+                   fontsize=11, color="#1e3a5f", fontweight="bold",
+                   transform=ax_tb.transAxes, zorder=6)
+
+        # value text (left/main column)
+        ax_tb.text(x0 + val_w/2, cy, value,
+                   ha="center", va="center",
+                   fontsize=13, color="#0f172a", fontweight="bold",
+                   transform=ax_tb.transAxes, zorder=6, clip_on=True)
+
+    # ── outer border on top (re-draw to cover everything) ─
+    for spine in [(x0,y0,x0+W,y0),(x0,y0+H,x0+W,y0+H),
+                  (x0,y0,x0,y0+H),(x0+W,y0,x0+W,y0+H)]:
+        ax_tb.plot([spine[0],spine[2]], [spine[1],spine[3]],
+                   color="#1e3a5f", linewidth=2,
+                   transform=ax_tb.transAxes, zorder=7)
+
+    ax_tb.text(0.998, 0.01, "Design & Developed by Eng. Mhmd Samir",
+               ha="right", va="bottom", fontsize=6, color="#64748b",
+               fontstyle="italic", transform=ax_tb.transAxes, zorder=8)
 
 
 def build_figure(gdf, opts):
