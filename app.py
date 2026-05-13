@@ -407,9 +407,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("## 📋 بيانات الطلب")
-    tb_name   = st.text_input("اسم مقدم الطلب", placeholder="مثال: أحمد محمد")
-    tb_ref    = st.text_input("رقم الطلب",       placeholder="مثال: 2024/123")
-    tb_center = st.text_input("المركز",           placeholder="مثال: مركز أبوحمص")
+    tb_name   = st.text_input("اسم مقدم الطلب", placeholder="مثال: محمد سمير")
+    tb_ref    = st.text_input("رقم الطلب",       placeholder="مثال: 122")
+    tb_center = st.text_input("المركز",           placeholder="مثال: مركز كوم حمادة")
 
 
 # ════════════════════════════════════════════════════
